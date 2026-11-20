@@ -33,7 +33,15 @@ python play.py                                        # you (P0) vs the base mod
 python play.py --p1 random                            # you vs random
 python play.py --p0 random --p1 net --sims 0          # watch the base model play
 python play.py --p0 human --p1 human                  # hot seat
+
+python viz.py --p0 net --p1 greedy                    # record a game into a browser viewer
+python viz.py --p0 net --p1 net --sims 100 --out runs/selfplay.html
 ```
+
+The viewer (`viz.py`) plays one game, then writes a single self-contained HTML
+file with play/pause, step-forward/back, a scrub slider and a move log — no
+server and no network access needed. Space plays and pauses, the arrow keys
+step one move.
 
 Move syntax is `<square> <direction>`, e.g. `3 cw` or `5 ccw`; commands are
 `help`, `moves`, `board`, `quit`.
@@ -158,6 +166,7 @@ pretrain.py        supervised warm start from the greedy teacher
 train_a2c.py       actor-critic training
 evaluate.py        checkpoint evaluation against baselines or another net
 play.py            terminal UI
+viz.py             record a game into a self-contained HTML viewer
 docs/learning-guide.md  how and why it is built: env design, algorithms, maths
 tests/             rule, network and agent tests (40)
 ```

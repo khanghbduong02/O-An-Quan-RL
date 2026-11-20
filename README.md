@@ -5,7 +5,10 @@ mancala-style game: an AlphaZero-style policy/value network with PUCT MCTS, an
 A2C baseline, and classical opponents, all measured against each other.
 
 The project brief is in [Ô Ăn Quan RL Agent.md](Ô Ăn Quan RL Agent.md); the measured
-results and the reasons behind them are in [docs/results.md](docs/results.md).
+results and the reasons behind them are in [docs/results.md](docs/results.md);
+and [docs/learning-guide.md](docs/learning-guide.md) explains the environment
+design, every algorithm and the maths behind it, for readers learning the
+material.
 
 ## Status
 
@@ -36,7 +39,7 @@ Move syntax is `<square> <direction>`, e.g. `3 cw` or `5 ccw`; commands are
 `help`, `moves`, `board`, `quit`.
 
 ```bash
-python -m pytest tests -q          # 38 tests
+python -m pytest tests -q          # 40 tests
 ```
 
 ## Training and evaluation
@@ -76,11 +79,12 @@ plies per game so deterministic agents do not replay one identical game.
 | greedy | 0.875 | — | — | — |
 | alpha-beta 2 | 0.750 | 0.42 | — | — |
 | alpha-beta 4 | 0.525 | 0.15 | 0.42 (vs depth 3) | — |
-| plain MCTS 100 | — | 0.000 | — | — |
-| **`runs/base_model.npz`** (learned, no search) | **0.812** | **0.425** | **0.725** | **1.000** |
-| base_model + 400 sims | — | 0.100 | — | — |
-| `runs/base_az/final.npz` (AlphaZero, 96 sims) | 0.450 | 0.150 | 0.113 | 0.875 |
-| `runs/base_az/final.npz` (policy only) | — | 0.062 | 0.113 | — |
+| plain MCTS 100 | — | 0.800 | — | — |
+| **`runs/base_model.npz`** (learned, no search) | **0.925** | **0.388** | **0.675** | **0.238** |
+| base_model + 32 sims | 1.000 | — | — | — |
+| **base_model + 100 sims** | **0.988** | **0.938** | **0.863** | **0.750** |
+| base_model + 400 sims | — | 0.950 | — | — |
+| `runs/base_az2/final.npz` (warm start + self-play, 64 sims) | 0.975 | 0.613 | 0.700 | 0.350 |
 | `runs/base_a2c/final.npz` (policy only) | 0.588 | 0.087 | 0.700 | — |
 
 Three things stand out, and they are discussed in
@@ -91,17 +95,20 @@ Three things stand out, and they are discussed in
    loses to greedy at every depth and gets *weaker* as depth grows: the static
    "score difference + material" evaluation is systematically misleading in a
    game where captures are chains.
-2. **Cold-start AlphaZero deadlocks.** Its value error (~20 points) is larger
-   than a typical capture, so a 64–96 simulation search cannot tell a good
-   capture from noise. Self-play games degenerate into 60–100 ply shuffles and
-   the policy learns no capture instinct at all (3.6 points per move, the same
-   as random; greedy scores 8.7).
-3. **The fix was the encoding, not more search.** Feeding the network "points
+2. **The fix was the encoding, not more search.** Feeding the network "points
    this action captures right now" (10 extra input features) plus a supervised
-   warm start from greedy produces a policy that scores 0.81 against random and
-   0.73 against alpha-beta 4 without any search. Adding search on top of it
-   makes it *worse* (400 sims → 0.10 against greedy) because PUCT trusts the
-   noisy value head over the good prior.
+   warm start from greedy produces a policy that is roughly greedy's equal
+   without any search (0.925 against random, 0.388 against greedy).
+3. **With a decent prior, search helps monotonically.** The same checkpoint
+   scores 0.938 against greedy at 100 simulations and 0.950 at 400, versus
+   0.388 raw. Getting there required fixing a terminal-value sign error in both
+   search implementations: finished positions kept `player` on the player who
+   moved *last*, so winning terminal moves were scored as losses and search
+   looked harmful. See §0 of `docs/results.md` for the measurements.
+
+Caveat worth keeping in mind: with 40 games per pairing, the 95 % interval on
+a score near 0.5 is about ±0.15, so small differences are directions, not
+measurements.
 
 ## Base model for comparison
 
@@ -151,5 +158,6 @@ pretrain.py        supervised warm start from the greedy teacher
 train_a2c.py       actor-critic training
 evaluate.py        checkpoint evaluation against baselines or another net
 play.py            terminal UI
-tests/             rule, network and agent tests (38)
+docs/learning-guide.md  how and why it is built: env design, algorithms, maths
+tests/             rule, network and agent tests (40)
 ```

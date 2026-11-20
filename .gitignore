@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+
+# Local tooling
+.freebuff/
+
+# Training artifacts (checkpoints, logs, per-run output) live outside version
+# control except for the shipped base model used as a comparison baseline.
+runs/*
+!runs/base_model.npz
+!runs/base_model_eval_policy.json
+!runs/base_model_eval_search.json

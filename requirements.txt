@@ -1,0 +1,6 @@
+# Runtime: only NumPy is needed (the network is implemented by hand).
+numpy>=1.24
+
+# Optional, for running the test suite with pytest:
+#   python -m pytest tests -q
+# pytest>=8

@@ -1,0 +1,46 @@
+{
+  "checkpoint": "runs/base_model.npz",
+  "policy_only": false,
+  "simulations": 0,
+  "games_per_opponent": 40,
+  "opening_plies": 2,
+  "seed": 0,
+  "results": {
+    "random": {
+      "games": 40,
+      "wins": 32,
+      "losses": 7,
+      "draws": 1,
+      "score": 0.8125,
+      "elo_diff": 254.7,
+      "seconds": 0.1
+    },
+    "greedy": {
+      "games": 40,
+      "wins": 16,
+      "losses": 22,
+      "draws": 2,
+      "score": 0.425,
+      "elo_diff": -52.5,
+      "seconds": 0.1
+    },
+    "alphabeta4": {
+      "games": 40,
+      "wins": 29,
+      "losses": 11,
+      "draws": 0,
+      "score": 0.725,
+      "elo_diff": 168.4,
+      "seconds": 2.8
+    },
+    "mcts100": {
+      "games": 40,
+      "wins": 40,
+      "losses": 0,
+      "draws": 0,
+      "score": 1.0,
+      "elo_diff": null,
+      "seconds": 1.3
+    }
+  }
+}

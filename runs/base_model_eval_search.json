@@ -1,0 +1,19 @@
+{
+  "checkpoint": "runs/base_model.npz",
+  "policy_only": false,
+  "simulations": 400,
+  "games_per_opponent": 40,
+  "opening_plies": 2,
+  "seed": 0,
+  "results": {
+    "greedy": {
+      "games": 40,
+      "wins": 4,
+      "losses": 36,
+      "draws": 0,
+      "score": 0.1,
+      "elo_diff": -381.7,
+      "seconds": 18.5
+    }
+  }
+}

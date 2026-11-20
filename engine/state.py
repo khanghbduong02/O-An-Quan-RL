@@ -186,7 +186,13 @@ class State:
         return board_p0, board_p1
 
     def returns(self, rules: Rules = DEFAULT_RULES) -> float:
-        """Game value for the player to move: +1 win, -1 loss, 0 draw."""
+        """Game value from ``player``'s side: +1 win, -1 loss, 0 draw.
+
+        While a game is running that is the player to move.  Once it is over no
+        turn is handed over, so ``player`` still holds the player who moved
+        last and the value is *theirs*; search code that stores values per node
+        has to account for that flip.
+        """
         p0, p1 = self.final_points(rules)
         difference = (p0 - p1) if self.player == 0 else (p1 - p0)
         if difference > 0:

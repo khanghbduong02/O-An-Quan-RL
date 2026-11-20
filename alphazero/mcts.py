@@ -67,7 +67,7 @@ class MCTS:
             while node.children:
                 node = self._select(node)
                 path.append(node)
-            value = self._expand(node) if not node.state.done else node.state.returns(self.rules)
+            value = self._expand(node) if not node.state.done else self._leaf_value(node)
             for visited in reversed(path):
                 visited.visits += 1
                 visited.value += value
@@ -87,10 +87,25 @@ class MCTS:
         return self.search(state, add_noise=add_noise)
 
     # ------------------------------------------------------------------- pieces
+    def _leaf_value(self, node: _Node) -> float:
+        """Value of a finished game, from the node's own point of view.
+
+        Node values are stored for the player to move *at that node*, and
+        ``_select`` negates a child's value to read it from the parent's side.
+        A finished state, though, keeps ``player`` on the player who moved last
+        (no turn is handed over), so ``State.returns()`` is already *their*
+        score and must be flipped once to keep the convention.
+
+        Getting this backwards makes the search prefer lines that lose on the
+        spot: with a neutral network, a move that ends the game as a win then
+        looks like a move that ends it as a loss.
+        """
+        return -node.state.returns(self.rules)
+
     def _expand(self, node: _Node) -> float:
         """Create children for ``node`` and return the network value."""
         if node.state.done:
-            return node.state.returns(self.rules)
+            return self._leaf_value(node)
         probs, value = self.net.predict(node.state, self.rules)
         mask = legal_mask(node.state)
         player = node.state.player

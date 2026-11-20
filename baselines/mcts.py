@@ -82,6 +82,11 @@ class PlainMCTS:
         return best_child
 
     def _rollout(self, state: State) -> float:
+        """Random playout; the result is scored for the player to move in
+        ``state``.  It has to be captured before the playout because a finished
+        position keeps ``player`` on whoever moved last, and on an already
+        finished position that is the *opponent* of the node's mover."""
+        perspective = (1 - state.player) if state.done else state.player
         plies = 0
         while not state.done:
             actions = state.legal_actions()
@@ -91,11 +96,11 @@ class PlainMCTS:
                 break
         if state.done:
             p0, p1 = state.final_points(self.rules)
-            mine, theirs = (p0, p1) if state.player == 0 else (p1, p0)
+            mine, theirs = (p0, p1) if perspective == 0 else (p1, p0)
         else:
             points = state.points(self.rules)
             mine, theirs = (
-                (points[0], points[1]) if state.player == 0 else (points[1], points[0])
+                (points[0], points[1]) if perspective == 0 else (points[1], points[0])
             )
         if mine > theirs:
             return 1.0

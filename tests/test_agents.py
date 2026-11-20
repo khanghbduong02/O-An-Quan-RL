@@ -11,8 +11,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import numpy as np
 
 from alphazero import PolicyValueNet, TrainConfig, Trainer, play_game
+from alphazero.mcts import MCTS
 from baselines import AlphaBetaAgent, GreedyAgent, NetAgent, PlainMCTS, RandomAgent
-from engine import State, initial_state
+from engine import State, action_index, initial_state
 from eval.arena import play_match
 from eval.elo import elo_difference, fit_elo
 from ppo import A2CConfig, A2CTrainer
@@ -46,6 +47,48 @@ def test_plain_mcts_returns_legal_moves():
     state = initial_state()
     agent = PlainMCTS(iterations=8, seed=0)
     assert agent.choose(state) in state.legal_actions()
+
+
+def _neutral_net() -> PolicyValueNet:
+    """Zero weights: uniform policy and a value of exactly 0 everywhere, so a
+    search can only be steered by terminal results and visit counts."""
+    net = PolicyValueNet(hidden=8, seed=0)
+    for key in net.params:
+        net.params[key] = np.zeros_like(net.params[key])
+    return net
+
+
+# Example 6's position: 1 cw captures the last mandarin and ends the game.
+# On its own that finishing line is a 19-20 loss for player 0; with twelve
+# extra captured stones it is a 31-20 win, on an otherwise identical board.
+_BOTH_MANDARINS = dict(quan=(True, False), quan_captor=(-1, 1), mandarins_taken=(0, 1))
+_LAST_MANDARIN_BOARD = [5, 9, 0, 0, 0, 0, 2, 3, 0, 0, 0, 0]
+
+
+def test_mcts_scores_a_winning_terminal_move_from_the_movers_side():
+    """Regression: terminal values are stored per node, from the side to move
+    there, while a finished state still reports the last mover's result."""
+    from engine import COUNTER_CLOCKWISE
+
+    winning = State.from_cells(_LAST_MANDARIN_BOARD, captured=(12, 0), **_BOTH_MANDARINS)
+    losing = State.from_cells(_LAST_MANDARIN_BOARD, **_BOTH_MANDARINS)
+    finishing = action_index(1, 1)  # (1, clockwise)
+    other = action_index(1, COUNTER_CLOCKWISE)
+
+    visits = MCTS(_neutral_net(), simulations=80, rng=np.random.default_rng(0)).search(winning)
+    assert visits[finishing] > 0.75, visits
+    assert visits[finishing] > visits[other]
+
+    visits = MCTS(_neutral_net(), simulations=80, rng=np.random.default_rng(0)).search(losing)
+    assert visits[finishing] < 0.25, visits
+
+
+def test_plain_mcts_scores_a_winning_terminal_rollout_from_the_nodes_side():
+    from engine import CLOCKWISE
+
+    winning = State.from_cells(_LAST_MANDARIN_BOARD, captured=(12, 0), **_BOTH_MANDARINS)
+    agent = PlainMCTS(iterations=120, seed=0)
+    assert agent.choose(winning) == (1, CLOCKWISE)
 
 
 def test_net_agent_returns_legal_moves():

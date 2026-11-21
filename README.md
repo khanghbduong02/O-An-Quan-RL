@@ -92,8 +92,16 @@ plies per game so deterministic agents do not replay one identical game.
 | base_model + 32 sims | 1.000 | — | — | — |
 | **base_model + 100 sims** | **0.988** | **0.938** | **0.863** | **0.750** |
 | base_model + 400 sims | — | 0.950 | — | — |
+| `runs/az_big/final.npz` (warm start v2 + 8 self-play iters, 100 sims) | — | 0.966 | 0.859 | 0.844 |
+| **`runs/az_big/final.npz` + 400 sims** | — | **0.978** | **0.891** | **0.884** |
 | `runs/base_az2/final.npz` (warm start + self-play, 64 sims) | 0.975 | 0.613 | 0.700 | 0.350 |
 | `runs/base_a2c/final.npz` (policy only) | 0.588 | 0.087 | 0.700 | — |
+
+The `runs/az_big` rows are 160 games per pairing at seed 3, so their standard
+error is ≈ 0.03 rather than 0.08; the rest are 40 games at seed 1. `az_big` is
+the strongest configuration measured here (see §6b of `docs/results.md`) and is
+not committed — reproduce it in about five minutes with the commands in the
+[next section](#training-and-evaluation).
 
 Three things stand out, and they are discussed in
 [docs/results.md](docs/results.md):
@@ -113,6 +121,11 @@ Three things stand out, and they are discussed in
    search implementations: finished positions kept `player` on the player who
    moved *last*, so winning terminal moves were scored as losses and search
    looked harmful. See §0 of `docs/results.md` for the measurements.
+4. **Self-play pays once the prior is good.** Warm-started, 8 iterations at
+   lr 3e-4 and 128 self-play simulations lifted the model from 0.766 to 0.844
+   against plain MCTS 100, and 400 simulations then score 0.978 / 0.891 / 0.884
+   against greedy / alpha-beta 4 / MCTS 100. `c_puct` tuning and a larger warm
+   start were both inside the noise floor.
 
 Caveat worth keeping in mind: with 40 games per pairing, the 95 % interval on
 a score near 0.5 is about ±0.15, so small differences are directions, not
@@ -127,6 +140,15 @@ score your own run against it:
 ```bash
 python evaluate.py --ckpt runs/your_run/final.npz --sims 0 --games 100 \
     --opponents random,greedy,alphabeta4,net:runs/base_model.npz
+```
+
+The strongest checkpoint measured in this repository is `runs/az_big/final.npz`
+(warm start v2 + 8 self-play iterations, §6b of `docs/results.md`). Once you
+have trained it:
+
+```bash
+python play.py --p0 human --p1 net --ckpt runs/az_big/final.npz --sims 100
+python viz.py --p0 net --p1 greedy --ckpt runs/az_big/final.npz --sims 100
 ```
 
 Checkpoints are plain `.npz` files (`net.save` / `PolicyValueNet.load`), so a

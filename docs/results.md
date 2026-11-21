@@ -199,6 +199,61 @@ we know: 64 vs 100 simulations is a real handicap, and 24 iterations of
 self-play is not enough to improve on a greedy-imitating teacher. Running it
 longer is the obvious next experiment.
 
+## 6b. Self-play, second attempt: at this budget it works
+
+The §6 run was handicapped several ways at once: 64 simulations, a 1e-3
+learning rate, and self-play targets produced by the buggy search. The retry
+changed only what could be changed honestly — a fresh warm start, more search
+per self-play move, and a learning rate small enough not to erase the teacher.
+
+Warm start v2 (`pretrain.py --games 6000 --epochs 4 --hidden 256`): 6000 greedy
+games, 49 365 positions, final epoch policy CE 0.624 and value MSE 0.217.
+Policy-only (40 games, seed 1) it scores 0.925 vs random and 0.463 vs greedy —
+the earlier teacher's equal.
+
+Resume from it for 8 iterations × 48 games × 128 simulations, lr 3e-4, one
+process, seed 1 (`runs/az_big`, about four minutes). Every cell below is 160
+games, seed 3, alternating seats, two random opening plies, so SE ≈ 0.03:
+
+| Checkpoint | sims | vs greedy | vs alpha-beta 4 | vs MCTS 100 |
+|---|---|---|---|---|
+| warm start v2 (`runs/pretrain_big`) | 100 | 0.959 | 0.881 | 0.766 |
+| + 4 self-play iterations | 100 | 0.966 | 0.834 | 0.797 |
+| + 8 self-play iterations (`runs/az_big`) | 100 | 0.966 | 0.859 | 0.844 |
+| + 8 self-play iterations | 400 | **0.978** | **0.891** | **0.884** |
+
+What did and did not improve:
+
+* Against greedy and plain MCTS the self-play iterations help, and clearly so
+  against MCTS 100: 0.766 → 0.844, roughly two standard errors. This is the
+  first run in which self-play on top of the warm start pays for itself.
+* Against alpha-beta 4 the warm start and the fine-tuned model are inside each
+  other's error bars (0.881 vs 0.859). Self-play sharpened the play against
+  search opponents, not against the one-ply-capture heuristic it was trained to
+  imitate.
+* Search scales again: 400 simulations add 0.01–0.03 on every opponent, where
+  the earlier model had flattened out by 200.
+
+The checkpoint is `runs/az_big/final.npz` (gitignored; reproduce with the
+commands at the end of this page).
+
+Two experiments that produced **no** gain, recorded so nobody repeats them:
+
+* **`c_puct` tuning.** At 100 sims and 160 games, c = 0.4 / 0.6 / 0.8 / 1.5
+  scored 0.897 / 0.859 / 0.906 / 0.884 against alpha-beta 4 and 0.728 / 0.725 /
+  0.812 / 0.725 against MCTS 100. A 300-game paired repeat of 0.6 vs 1.5 on
+  `base_model` gave 0.870 vs 0.830 (alpha-beta), 0.700 vs 0.722 (MCTS), 0.920
+  vs 0.907 (greedy) — a wash. The default stays 1.5.
+* **A bigger warm start on its own.** v2 against v1 is 0.881 vs 0.863 on
+  alpha-beta 4, inside the error bars. What mattered was what came after it.
+
+Value calibration, measured on 461 positions taken from greedy games with the
+base model: RMSE 0.40 in units where 1.0 = 50 points (≈ 20 points), correlation
+0.60–0.64, and the buckets are close to unbiased — positions predicted at
++0.37 finish at +0.31, at −0.36 finish at −0.24. The value head is *noisy*, not
+systematically wrong, which is why more simulations help only a little: search
+averages the noise, but each child collects only 30–60 value samples.
+
 ## 7. Archive: numbers measured with the search bug
 
 Kept so the earlier analysis is still readable. These are **not** the current
@@ -235,9 +290,13 @@ coarse for a capture-chain game, and no teacher to bootstrap the prior.
 * **Re-run cold-start AlphaZero with the fixed search.** The original failure
   was measured with corrupted self-play targets; this is the cheapest way to
   find out how much of it was the bug and how much was the value function.
+  §6b shows that self-play *after* a warm start now works, which makes the cold
+  start the remaining unknown.
 * Train the value head to convergence on fixed data before any search
   (supervised `score_diff` regression), then re-run PUCT and check whether the
-  score keeps rising past 400 simulations.
+  score keeps rising past 400 simulations. §6b measured the head as calibrated
+  but noisy (RMSE ≈ 20 points, ≈ 20 points of noise on every leaf value), which
+  is the clearest remaining lever.
 * Replace Monte-Carlo outcome targets with TD(λ) targets so the value learns
   from its own bootstrap instead of a noisy final margin.
 * Self-play against a league (greedy + past checkpoints), so passivity gets
@@ -273,6 +332,13 @@ python train.py --run runs/base_az2 --resume runs/pretrain_greedy/final.npz \
     --hidden 256 --sims 64 --games 96 --workers 12 --value-target score_diff \
     --time-budget 700
 
+# second warm start and the self-play run of §6b (the best numbers here)
+python pretrain.py --run runs/pretrain_big --games 6000 --epochs 4 --hidden 256
+python train.py --run runs/az_big --resume runs/pretrain_big/final.npz \
+    --iters 8 --games 48 --sims 128 --lr 3e-4 --seed 1
+python evaluate.py --ckpt runs/az_big/final.npz --sims 400 --games 160 \
+    --opponents greedy,alphabeta4,mcts100 --seed 3
+
 # actor-critic
 python train_a2c.py --run runs/base_a2c --iters 200 --games 24
 ```
@@ -283,8 +349,9 @@ Raw logs and per-run JSON: `runs/az_train.log`, `runs/az_dense.log`,
 re-measurements).
 
 **Checkpoint compatibility.** Checkpoints store their feature width and action
-count. `runs/base_model.npz`, `runs/base_az2/final.npz` and
-`runs/pretrain_greedy/final.npz` are 29-feature and load; `runs/base_az/*` and
+count. `runs/base_model.npz`, `runs/base_az2/final.npz`,
+`runs/pretrain_greedy/final.npz`, `runs/pretrain_big/final.npz` and
+`runs/az_big/final.npz` are 29-feature and load; `runs/base_az/*` and
 `runs/base_a2c/*` are from the 19-feature era and raise
 `ValueError: checkpoint was built for a different encoding`. They are kept only
 as records of that experiment.

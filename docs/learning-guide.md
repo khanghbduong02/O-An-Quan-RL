@@ -703,6 +703,14 @@ even with plain MCTS" — with error bars straddling all of it.
    shuffling. The cold-start failures were *partly* caused by corrupted
    self-play targets, so the earlier "value error dominates" explanation is
    now only a partial explanation.
+7. **Self-play, second attempt.** With the fixed search, a lower learning rate
+   (3e-4) and more search per self-play move (128 sims), eight iterations on
+   top of a fresh warm start did improve the agent — 0.844 vs plain MCTS 100
+   against 0.766 for the warm start itself — while alpha-beta 4 stayed flat
+   (0.859 vs 0.881, inside the error bars). The lesson is narrower than
+   "self-play works": at this budget it needs a prior that is already good and
+   a learning rate that does not erase it. Tuning `c_puct` and enlarging the
+   warm start changed nothing beyond noise.
 
 The meta-lesson is the important one: the story in step 4 was plausible,
 well-argued, and wrong. It survived because it was consistent with a symptom
@@ -743,6 +751,15 @@ pairing, alternating seats, two random opening plies, seed 1 unless stated.
 | alpha-beta 4 | 0.700 |
 | plain MCTS 100 | 0.350 |
 
+### `runs/az_big/final.npz` (warm start v2 + 8 self-play iterations)
+
+160 games per pairing, seed 3:
+
+| Simulations | vs greedy | vs alpha-beta 4 | vs MCTS 100 |
+|---|---|---|---|
+| 100 | 0.966 | 0.859 | 0.844 |
+| 400 | 0.978 | 0.891 | 0.884 |
+
 ### `runs/base_a2c/final.npz` (A2C, policy only)
 
 | Opponent | Score |
@@ -752,7 +769,7 @@ pairing, alternating seats, two random opening plies, seed 1 unless stated.
 | alpha-beta 4 | 0.700 |
 
 The headline: **a decent prior plus PUCT beats every classical baseline**
-(0.94 vs greedy at 100 simulations, 0.95 at 400), and the same network without
+(0.94–0.98 vs greedy at 100–400 simulations), and the same network without
 search does not (0.39). Alpha-beta remains verified correct and remains weaker
 than greedy — a fact about evaluation functions, not about pruning.
 
@@ -797,8 +814,10 @@ Full tables, the archived pre-fix numbers and the reproduction commands are in
    beats greedy, the "evaluation is blind" story is confirmed and you have a
    much stronger classical baseline for free.
 3. **Train the value head to convergence** on fixed data (supervised
-   `score_diff` regression, many epochs). If PUCT then scales with simulations
-   past 400, the value-accuracy hypothesis is confirmed.
+   `score_diff` regression, many epochs). Measured on 461 positions its error is
+   ≈ 20 points (RMSE 0.40 where 1.0 = 50 points) and it is close to unbiased, so
+   this is a noise problem, not a bias problem: shrink the noise and the search
+   should keep scaling past 400 simulations.
 4. **A league instead of pure self-play**: mix in greedy and past checkpoints
    so passivity is punished instead of mirrored. Standard fix for
    self-play collapsing into draws.

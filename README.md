@@ -7,7 +7,7 @@ A2C baseline, and classical opponents, all measured against each other.
 The project brief is in [Ô Ăn Quan RL Agent.md](Ô Ăn Quan RL Agent.md); the measured
 results and the reasons behind them are in [docs/results.md](docs/results.md);
 and [docs/learning-guide.md](docs/learning-guide.md) explains the environment
-design, every algorithm and the maths behind it, for readers learning the
+design, every algorithm and the maths behind it, plus a general RL handbook (§17–§28) for your next project, for readers learning the
 material.
 
 ## Status
